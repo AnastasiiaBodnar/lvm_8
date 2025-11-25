@@ -1,3 +1,9 @@
+const express = require("express");
+const router = express.Router();
+const Deal = require("../models/Deal");
+const Item = require("../models/Item");
+
+
 /**
  * @swagger
  * tags:
@@ -14,7 +20,16 @@
  *     responses:
  *       200:
  *         description: List of deals
- *
+ */
+router.get("/", async (req, res) => {
+  await autoCheckDeals();
+  const deals = await Deal.find().populate("client item");
+  res.json(deals);
+});
+
+/**
+ * @swagger
+ * /api/deals:
  *   post:
  *     summary: Create new deal
  *     tags: [Deals]
@@ -27,10 +42,8 @@
  *             properties:
  *               client:
  *                 type: string
- *                 description: Client ID
  *               item:
  *                 type: string
- *                 description: Item ID
  *               loanAmount:
  *                 type: number
  *               commission:
@@ -45,6 +58,10 @@
  *       200:
  *         description: Deal created
  */
+router.post("/", async (req, res) => {
+  const deal = await Deal.create(req.body);
+  res.json(deal);
+});
 
 /**
  * @swagger
@@ -61,7 +78,16 @@
  *     responses:
  *       200:
  *         description: Deal data
- *
+ */
+router.get("/:id", async (req, res) => {
+  await autoCheckDeals();
+  const deal = await Deal.findById(req.params.id).populate("client item");
+  res.json(deal);
+});
+
+/**
+ * @swagger
+ * /api/deals/{id}:
  *   put:
  *     summary: Update deal
  *     tags: [Deals]
@@ -80,7 +106,15 @@
  *     responses:
  *       200:
  *         description: Deal updated
- *
+ */
+router.put("/:id", async (req, res) => {
+  const deal = await Deal.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json(deal);
+});
+
+/**
+ * @swagger
+ * /api/deals/{id}:
  *   delete:
  *     summary: Delete deal
  *     tags: [Deals]
@@ -94,31 +128,31 @@
  *       200:
  *         description: Deal deleted
  */
-
-const express = require("express");
-const router = express.Router();
-const Deal = require("../models/Deal");
-
-router.get("/", async (req, res) => {
-  res.json(await Deal.find().populate("client item"));
-});
-
-router.post("/", async (req, res) => {
-  const deal = await Deal.create(req.body);
-  res.json(deal);
-});
-
-router.get("/:id", async (req, res) => {
-  res.json(await Deal.findById(req.params.id).populate("client item"));
-});
-
-router.put("/:id", async (req, res) => {
-  res.json(await Deal.findByIdAndUpdate(req.params.id, req.body, { new: true }));
-});
-
 router.delete("/:id", async (req, res) => {
   await Deal.findByIdAndDelete(req.params.id);
   res.json({ message: "Deal deleted" });
 });
 
+async function autoCheckDeals() {
+  const deals = await Deal.find().populate("item");
+
+  const today = new Date();
+
+  for (const deal of deals) {
+    if (deal.dueDate < today && !deal.isReturned) {
+      const item = deal.item;
+
+      if (item && item.status !== "owned") {
+        item.status = "owned";
+
+        item.priceHistory.push({
+          date: new Date(),
+          price: item.estimatedPrice
+        });
+
+        await item.save();
+      }
+    }
+  }
+}
 module.exports = router;

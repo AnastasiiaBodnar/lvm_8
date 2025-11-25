@@ -10,13 +10,11 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// ---- ПІДКЛЮЧЕННЯ ДО БД ----
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.error("DB error:", err));
 
-// ---- ROUTES ----
 app.use("/api/clients", require("./routes/clients"));
 app.use("/api/items", require("./routes/items"));
 app.use("/api/deals", require("./routes/deals"));
